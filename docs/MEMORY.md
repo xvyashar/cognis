@@ -19,6 +19,7 @@ Working memory for agents. Update this file as decisions are made. Anything mark
 | 2026-11-17 | PostgreSQL as primary DB, pgvector for embeddings | One datastore, transactional attendance writes plus vector search |
 | 2026-11-17 | Attendance is event-scoped with `unique (event_id, member_id)` | Idempotent check-in; reports are naturally per event |
 | 2026-11-17 | Store one row per enrollment sample; allow multiple samples per member | More samples improve accuracy; model field prevents mixing |
+| 2026-11-17 | UI style is dark, minimalistic, black and white | Owner preference; see Frontend UI design in `CONVENTIONS.md` |
 
 ## Open questions (resolve before/during implementation)
 

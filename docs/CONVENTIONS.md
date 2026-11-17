@@ -63,6 +63,17 @@ No frontend test runner is configured yet.
 - Existing global styles live in `src/app/globals.css` and define the Tailwind/theme tokens and fonts (Geist).
 - No API client, state library, or auth exists yet. Add `NEXT_PUBLIC_API_URL` (or similar) rather than hardcoding `http://localhost:3000`.
 
+## Frontend UI design
+
+The owner's preferred style: dark, minimalistic, black and white.
+
+- Near-black page backgrounds with white/near-white text, grayscale surfaces and thin neutral borders (`zinc`/`neutral` tokens fit). Build hierarchy from spacing, type scale and borders, not decoration.
+- No decorative color, gradients, glows, heavy shadows or illustrations. Keep motion subtle and functional.
+- Color is reserved for state that must stand out (success, error, warning, low-confidence match), used sparingly and with accessible contrast.
+- Generous whitespace and simple typography (existing Geist fonts). Keep screens calm and sparse; one clear primary action per view.
+- Admin tables and forms stay in the same palette: dense but quiet, no colored headers or zebra striping.
+- Camera/check-in screens should emphasize the camera feed and the result state, with minimal chrome around them.
+
 ## Working rules
 
 - Keep types shared across apps in one place if a shared package is added; otherwise duplicate small DTO shapes deliberately and document them.
