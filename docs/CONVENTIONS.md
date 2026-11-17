@@ -65,9 +65,11 @@ No frontend test runner is configured yet.
 
 ## Frontend UI design
 
-The owner's preferred style: dark, minimalistic, black and white.
+The owner's preferred style: dark, minimalistic, black and white. The app is forced dark (no OS light mode) through the theme tokens in `src/app/globals.css`.
 
-- Near-black page backgrounds with white/near-white text, grayscale surfaces and thin neutral borders (`zinc`/`neutral` tokens fit). Build hierarchy from spacing, type scale and borders, not decoration.
+- Use the semantic tokens, not raw colors: `bg-background`, `text-foreground`, `bg-surface`, `hover:bg-surface-hover`, `border-line`, `text-muted`, plus `success` / `warning` / `danger` for state. Add or change theme values in `globals.css`, not per component.
+- The body paints a CSS dot-grid texture over `--background` (28px fine grid plus an offset 56px accent grid, fading toward the bottom). Keep page-level wrappers transparent (no opaque `bg-background`) so it stays visible; adjust spacing, dot size or opacity in `globals.css` rather than adding another texture.
+- Near-black page backgrounds with white/near-white text, grayscale surfaces and thin neutral borders. Build hierarchy from spacing, type scale and borders, not decoration.
 - No decorative color, gradients, glows, heavy shadows or illustrations. Keep motion subtle and functional.
 - Color is reserved for state that must stand out (success, error, warning, low-confidence match), used sparingly and with accessible contrast.
 - Generous whitespace and simple typography (existing Geist fonts). Keep screens calm and sparse; one clear primary action per view.
