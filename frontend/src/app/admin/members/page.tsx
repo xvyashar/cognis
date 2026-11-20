@@ -163,8 +163,8 @@ export default function MembersPage() {
   }
 
   return (
-    <div className="flex max-w-5xl flex-col gap-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Members</h1>
           <p className="mt-2 text-sm text-muted">
@@ -174,7 +174,7 @@ export default function MembersPage() {
         <button
           type="button"
           onClick={openAddDialog}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+          className="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-md bg-foreground px-3 py-2 text-sm font-medium text-background transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground sm:w-auto"
         >
           <PlusIcon />
           Add member
@@ -198,77 +198,92 @@ export default function MembersPage() {
         </p>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-sm">
-          <thead>
-            <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-              <th className="pb-3 font-medium">Member</th>
-              <th className="pb-3 font-medium">Identifier</th>
-              <th className="pb-3 font-medium">Email</th>
-              <th className="pb-3 font-medium">Status</th>
-              <th className="pb-3 text-right font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((member) => (
-              <tr
-                key={member.id}
-                className="border-b border-line/60 transition-colors last:border-0 hover:bg-surface-hover/40"
-              >
-                <td className="py-4 pr-4 font-medium">{member.fullName}</td>
-                <td className="py-4 pr-4 text-muted">{member.identifier}</td>
-                <td className="py-4 pr-4 text-muted">{member.email}</td>
-                <td className="py-4 pr-4">
-                  <button
-                    type="button"
-                    onClick={() => toggleMember(member.id)}
-                    aria-pressed={member.isActive}
-                    aria-label={`Toggle ${member.fullName} status`}
-                    title={member.isActive ? "Deactivate member" : "Activate member"}
-                    className={`-ml-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm transition-colors hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground ${
-                      member.isActive ? "text-success" : "text-muted"
-                    }`}
+      {filtered.length === 0 ? (
+        <p className="py-12 text-center text-sm text-muted">
+          No members match “{query}”.
+        </p>
+      ) : (
+        <>
+          <div className="hidden overflow-x-auto lg:block">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
+                  <th className="pb-3 font-medium">Member</th>
+                  <th className="pb-3 font-medium">Identifier</th>
+                  <th className="pb-3 font-medium">Email</th>
+                  <th className="pb-3 font-medium">Status</th>
+                  <th className="pb-3 text-right font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((member) => (
+                  <tr
+                    key={member.id}
+                    className="border-b border-line/60 transition-colors last:border-0 hover:bg-surface-hover/40"
                   >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        member.isActive ? "bg-success" : "bg-muted"
-                      }`}
-                    />
-                    {member.isActive ? "Active" : "Inactive"}
-                  </button>
-                </td>
-                <td className="py-4 text-right">
-                  <div className="inline-flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => openEditDialog(member)}
-                      title="Edit member"
-                      aria-label={`Edit ${member.fullName}`}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-hover hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
-                    >
-                      <PencilIcon />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => removeMember(member.id)}
-                      aria-label={`Delete ${member.fullName}`}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-hover hover:text-danger focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
-                    >
-                      <TrashIcon />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    <td className="py-4 pr-4 font-medium">
+                      {member.fullName}
+                    </td>
+                    <td className="py-4 pr-4 text-muted">
+                      {member.identifier}
+                    </td>
+                    <td className="py-4 pr-4 text-muted">{member.email}</td>
+                    <td className="py-4 pr-4">
+                      <MemberStatusButton
+                        member={member}
+                        onToggle={() => toggleMember(member.id)}
+                      />
+                    </td>
+                    <td className="py-4 text-right">
+                      <MemberActions
+                        member={member}
+                        onEdit={() => openEditDialog(member)}
+                        onDelete={() => removeMember(member.id)}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-        {filtered.length === 0 && (
-          <p className="py-12 text-center text-sm text-muted">
-            No members match “{query}”.
-          </p>
-        )}
-      </div>
+          <ul className="flex flex-col gap-3 lg:hidden">
+            {filtered.map((member) => (
+              <li
+                key={member.id}
+                className="rounded-lg border border-line bg-surface p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{member.fullName}</p>
+                    {member.identifier && (
+                      <p className="mt-0.5 truncate text-xs text-muted">
+                        {member.identifier}
+                      </p>
+                    )}
+                    {member.email && (
+                      <p className="truncate text-xs text-muted">
+                        {member.email}
+                      </p>
+                    )}
+                  </div>
+                  <MemberActions
+                    member={member}
+                    onEdit={() => openEditDialog(member)}
+                    onDelete={() => removeMember(member.id)}
+                  />
+                </div>
+                <div className="mt-3">
+                  <MemberStatusButton
+                    member={member}
+                    onToggle={() => toggleMember(member.id)}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
       <dialog
         ref={dialogRef}
@@ -357,6 +372,66 @@ export default function MembersPage() {
           </div>
         </form>
       </dialog>
+    </div>
+  );
+}
+
+function MemberStatusButton({
+  member,
+  onToggle,
+}: {
+  member: Member;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={member.isActive}
+      aria-label={`Toggle ${member.fullName} status`}
+      title={member.isActive ? "Deactivate member" : "Activate member"}
+      className={`-ml-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 text-sm transition-colors hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground ${
+        member.isActive ? "text-success" : "text-muted"
+      }`}
+    >
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${
+          member.isActive ? "bg-success" : "bg-muted"
+        }`}
+      />
+      {member.isActive ? "Active" : "Inactive"}
+    </button>
+  );
+}
+
+function MemberActions({
+  member,
+  onEdit,
+  onDelete,
+}: {
+  member: Member;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="inline-flex shrink-0 items-center gap-1">
+      <button
+        type="button"
+        onClick={onEdit}
+        title="Edit member"
+        aria-label={`Edit ${member.fullName}`}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-hover hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+      >
+        <PencilIcon />
+      </button>
+      <button
+        type="button"
+        onClick={onDelete}
+        aria-label={`Delete ${member.fullName}`}
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-hover hover:text-danger focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
+      >
+        <TrashIcon />
+      </button>
     </div>
   );
 }
