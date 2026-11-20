@@ -8,6 +8,7 @@ import {
   type FormEvent,
 } from "react";
 
+import { createId } from "@/lib/id";
 import { mockEvents, type AdminEvent } from "../_data/events";
 import { mockMembers } from "../_data/members";
 
@@ -502,7 +503,7 @@ export default function EventsPage() {
       );
     } else {
       setEvents((current) => [
-        { id: crypto.randomUUID(), ...values },
+        { id: createId(), ...values },
         ...current,
       ]);
     }

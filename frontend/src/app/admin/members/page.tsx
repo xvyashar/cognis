@@ -7,6 +7,7 @@ import {
   type FormEvent,
 } from "react";
 
+import { createId } from "@/lib/id";
 import { mockMembers, type Member } from "../_data/members";
 
 const fieldClass =
@@ -97,7 +98,7 @@ export default function MembersPage() {
     } else {
       setMembers((current) => [
         {
-          id: crypto.randomUUID(),
+          id: createId(),
           fullName,
           identifier: form.identifier.trim(),
           email: form.email.trim(),
