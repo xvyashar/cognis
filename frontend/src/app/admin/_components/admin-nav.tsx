@@ -4,12 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   AttendanceLogsIcon,
+  DevicesIcon,
   EventsIcon,
   MembersIcon,
 } from "./icons";
 
 const items = [
   { href: "/admin/members", label: "Members", Icon: MembersIcon },
+  { href: "/admin/devices", label: "Devices", Icon: DevicesIcon },
   { href: "/admin/events", label: "Events", Icon: EventsIcon },
   {
     href: "/admin/attendance-logs",

@@ -32,6 +32,16 @@ export function MembersIcon(props: IconProps) {
   );
 }
 
+export function DevicesIcon(props: IconProps) {
+  return (
+    <IconBase {...props}>
+      <rect x="3" y="4" width="18" height="12" rx="2" />
+      <path d="M8 20h8" />
+      <path d="M12 16v4" />
+    </IconBase>
+  );
+}
+
 export function EventsIcon(props: IconProps) {
   return (
     <IconBase {...props}>
@@ -125,6 +135,15 @@ export function TrashIcon({ className = "h-4 w-4" }: IconProps) {
       <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
       <path d="M10 11v6" />
       <path d="M14 11v6" />
+    </IconBase>
+  );
+}
+
+export function RotateIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <IconBase className={className}>
+      <path d="M21 2v6h-6" />
+      <path d="M21 12a9 9 0 1 1-9-9c2.5 0 4.8 1 6.4 2.6L21 8" />
     </IconBase>
   );
 }

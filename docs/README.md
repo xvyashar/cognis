@@ -8,7 +8,7 @@ Agent-facing knowledge base for this repository. Read `MEMORY.md` first when res
 | `CONVENTIONS.md` | Stack, commands, code conventions, repo gotchas |
 | `MEMORY.md` | Current state, decisions log, open questions, next steps |
 
-Last updated: 2026-11-20 (backend scaffold; admin Members and Events pages are mock-data UIs).
+Last updated: 2026-11-20 (backend scaffold; admin Members, Devices and Events pages are mock-data UIs).
 
 ## Quick reference
 
