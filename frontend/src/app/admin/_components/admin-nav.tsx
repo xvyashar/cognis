@@ -2,11 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  AttendanceLogsIcon,
+  EventsIcon,
+  MembersIcon,
+} from "./nav-icons";
 
 const items = [
-  { href: "/admin/members", label: "Members" },
-  { href: "/admin/events", label: "Events" },
-  { href: "/admin/attendance-logs", label: "Attendance Logs" },
+  { href: "/admin/members", label: "Members", Icon: MembersIcon },
+  { href: "/admin/events", label: "Events", Icon: EventsIcon },
+  {
+    href: "/admin/attendance-logs",
+    label: "Attendance Logs",
+    Icon: AttendanceLogsIcon,
+  },
 ] as const;
 
 export function AdminNav() {
@@ -22,12 +31,13 @@ export function AdminNav() {
           <Link
             key={item.href}
             href={item.href}
-            className={`whitespace-nowrap rounded-md px-2 py-1.5 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground ${
+            className={`flex items-center gap-2 whitespace-nowrap rounded-md px-2 py-1.5 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground ${
               active
                 ? "bg-foreground text-background"
                 : "text-muted hover:bg-surface-hover hover:text-foreground"
             }`}
           >
+            <item.Icon className="h-4 w-4 shrink-0" />
             {item.label}
           </Link>
         );
