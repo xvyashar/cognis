@@ -17,6 +17,7 @@ type AdminEvent = {
   memberIds: string[];
   isOpen: boolean;
   startsAt: string;
+  endsAt: string;
   isRepeating: boolean;
   repeatDays: number[];
 };
@@ -29,6 +30,7 @@ const mockEvents: AdminEvent[] = [
     memberIds: [],
     isOpen: true,
     startsAt: "2026-11-24T09:00",
+    endsAt: "2026-11-24T11:00",
     isRepeating: false,
     repeatDays: [],
   },
@@ -39,6 +41,7 @@ const mockEvents: AdminEvent[] = [
     memberIds: [],
     isOpen: true,
     startsAt: "2026-11-25T10:00",
+    endsAt: "2026-11-25T11:00",
     isRepeating: true,
     repeatDays: [3],
   },
@@ -49,6 +52,7 @@ const mockEvents: AdminEvent[] = [
     memberIds: ["1", "2"],
     isOpen: false,
     startsAt: "2026-12-01T14:00",
+    endsAt: "2026-12-01T15:30",
     isRepeating: false,
     repeatDays: [],
   },
@@ -59,6 +63,7 @@ const mockEvents: AdminEvent[] = [
     memberIds: ["1", "4", "5"],
     isOpen: false,
     startsAt: "2026-12-02T08:30",
+    endsAt: "2026-12-02T09:00",
     isRepeating: true,
     repeatDays: [1, 3],
   },
@@ -69,6 +74,7 @@ const mockEvents: AdminEvent[] = [
     memberIds: ["2", "5"],
     isOpen: false,
     startsAt: "2026-12-09T11:00",
+    endsAt: "2026-12-09T12:30",
     isRepeating: false,
     repeatDays: [],
   },
@@ -79,6 +85,7 @@ const mockEvents: AdminEvent[] = [
     memberIds: [],
     isOpen: true,
     startsAt: "2026-12-18T16:00",
+    endsAt: "2026-12-18T18:00",
     isRepeating: false,
     repeatDays: [],
   },
@@ -131,10 +138,14 @@ const activeMembers = mockMembers.filter((member) => member.isActive);
 const fieldClass =
   "w-full rounded-md border border-line bg-background px-3 py-2 text-sm text-foreground transition-colors placeholder:text-muted focus:border-muted focus:outline-none";
 
+const timeSelectClass =
+  "appearance-none rounded-md border border-line bg-background py-1.5 pr-6 pl-2 text-sm tabular-nums text-foreground transition-colors focus:border-muted focus:outline-none disabled:cursor-not-allowed disabled:opacity-50";
+
 const emptyForm = {
   name: "",
   description: "",
   startsAt: "",
+  endsAt: "",
   isOpen: true,
   memberIds: [] as string[],
   isRepeating: false,
@@ -177,6 +188,39 @@ function formatDateTime(value: string) {
   return `${shortWeekdays[weekday]} ${parsed.day} ${
     shortMonths[parsed.month - 1]
   } ${parsed.year}, ${parsed.time}`;
+}
+
+function dateTimeValue(value: string) {
+  const parsed = parseDateTime(value);
+  if (!parsed) return null;
+
+  const [rawHour = "0", rawMinute = "0"] = parsed.time.split(":");
+  return Date.UTC(
+    parsed.year,
+    parsed.month - 1,
+    parsed.day,
+    Number(rawHour),
+    Number(rawMinute),
+  );
+}
+
+function offsetDateTimeValue(value: string, minutes: number) {
+  const base = dateTimeValue(value);
+  if (base === null) return "";
+
+  const date = new Date(base + minutes * 60_000);
+  return `${formatDatePart(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
+}
+
+function formatTimeRange(startsAt: string, endsAt: string) {
+  const start = formatDateTime(startsAt);
+  if (!endsAt) return start;
+
+  if (startsAt.slice(0, 10) === endsAt.slice(0, 10)) {
+    return `${start} – ${endsAt.slice(11, 16)}`;
+  }
+
+  return `${start} – ${formatDateTime(endsAt)}`;
 }
 
 function formatRepeatDays(days: number[]) {
@@ -245,8 +289,19 @@ export default function EventsPage() {
   }, [pickerQuery]);
 
   const selectedDateTime = parseDateTime(form.startsAt);
+  const selectedEndDateTime = parseDateTime(form.endsAt);
   const selectedTime = selectedDateTime?.time ?? "09:00";
   const [pickerHour = "09", pickerMinute = "00"] = selectedTime.split(":");
+  const selectedEndTime =
+    selectedEndDateTime?.time ??
+    parseDateTime(offsetDateTimeValue(form.startsAt, 60))?.time ??
+    "10:00";
+  const [pickerEndHour = "10", pickerEndMinute = "00"] =
+    selectedEndTime.split(":");
+  const endsNextDay =
+    !!selectedDateTime &&
+    !!selectedEndDateTime &&
+    form.endsAt.slice(0, 10) > form.startsAt.slice(0, 10);
 
   const monthStart = new Date(Date.UTC(viewMonth.year, viewMonth.month - 1, 1));
   const mondayOffset = (monthStart.getUTCDay() + 6) % 7;
@@ -322,6 +377,7 @@ export default function EventsPage() {
       name: event.name,
       description: event.description,
       startsAt: event.startsAt,
+      endsAt: event.endsAt,
       isOpen: event.isOpen,
       memberIds: event.memberIds,
       isRepeating: event.isRepeating,
@@ -420,22 +476,51 @@ export default function EventsPage() {
     openPicker();
   }
 
+  function endFor(startsAt: string) {
+    const start = dateTimeValue(form.startsAt);
+    const end = dateTimeValue(form.endsAt);
+    const duration =
+      start !== null && end !== null && end > start
+        ? Math.round((end - start) / 60_000)
+        : 60;
+
+    return offsetDateTimeValue(startsAt, duration);
+  }
+
+  function withStartDate(hour: string, minute: string) {
+    const parsed = parseDateTime(form.startsAt);
+    const today = new Date();
+    const datePart = parsed
+      ? formatDatePart(parsed.year, parsed.month, parsed.day)
+      : formatDatePart(
+          today.getFullYear(),
+          today.getMonth() + 1,
+          today.getDate(),
+        );
+
+    return `${datePart}T${hour}:${minute}`;
+  }
+
   function selectDay(year: number, month: number, day: number) {
-    updateForm({
-      startsAt: `${formatDatePart(year, month, day)}T${selectedTime}`,
-    });
+    const startsAt = `${formatDatePart(year, month, day)}T${selectedTime}`;
+    updateForm({ startsAt, endsAt: endFor(startsAt) });
     setViewMonth({ year, month });
   }
 
-  function selectTime(hour: string, minute: string) {
-    const today = new Date();
-    const datePart =
-      form.startsAt.slice(0, 10) ||
-      `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(
-        today.getDate(),
-      )}`;
+  function selectStartTime(hour: string, minute: string) {
+    const startsAt = withStartDate(hour, minute);
+    updateForm({ startsAt, endsAt: endFor(startsAt) });
+  }
 
-    updateForm({ startsAt: `${datePart}T${hour}:${minute}` });
+  function selectEndTime(hour: string, minute: string) {
+    const parsed = parseDateTime(form.startsAt);
+    if (!parsed) return;
+
+    const sameDay = `${formatDatePart(parsed.year, parsed.month, parsed.day)}T${hour}:${minute}`;
+    updateForm({
+      endsAt:
+        sameDay > form.startsAt ? sameDay : offsetDateTimeValue(sameDay, 1440),
+    });
   }
 
   function selectToday() {
@@ -443,10 +528,9 @@ export default function EventsPage() {
     const year = today.getFullYear();
     const month = today.getMonth() + 1;
     const day = today.getDate();
+    const startsAt = `${formatDatePart(year, month, day)}T${selectedTime}`;
 
-    updateForm({
-      startsAt: `${formatDatePart(year, month, day)}T${selectedTime}`,
-    });
+    updateForm({ startsAt, endsAt: endFor(startsAt) });
     setViewMonth({ year, month });
   }
 
@@ -459,7 +543,15 @@ export default function EventsPage() {
       return;
     }
     if (!form.startsAt) {
-      setFormError("Choose a date and time.");
+      setFormError("Choose a start date and time.");
+      return;
+    }
+    if (!form.endsAt) {
+      setFormError("Choose an end time.");
+      return;
+    }
+    if (form.endsAt <= form.startsAt) {
+      setFormError("End time must be after the start time.");
       return;
     }
     if (!form.isOpen && form.memberIds.length === 0) {
@@ -475,6 +567,7 @@ export default function EventsPage() {
       name,
       description: form.description.trim(),
       startsAt: form.startsAt,
+      endsAt: form.endsAt,
       isOpen: form.isOpen,
       memberIds: form.memberIds,
       isRepeating: form.isRepeating,
@@ -564,7 +657,7 @@ export default function EventsPage() {
                   >
                     <td className="py-4 pr-4 font-medium">{event.name}</td>
                     <td className="py-4 pr-4">
-                      <p>{formatDateTime(event.startsAt)}</p>
+                      <p>{formatTimeRange(event.startsAt, event.endsAt)}</p>
                       {event.isRepeating && event.repeatDays.length > 0 && (
                         <p className="mt-0.5 text-xs text-muted">
                           {formatRepeatDays(event.repeatDays)}
@@ -613,7 +706,7 @@ export default function EventsPage() {
                   <div className="min-w-0">
                     <p className="truncate font-medium">{event.name}</p>
                     <p className="mt-0.5 text-xs text-muted">
-                      {formatDateTime(event.startsAt)}
+                      {formatTimeRange(event.startsAt, event.endsAt)}
                     </p>
                     {event.isRepeating && event.repeatDays.length > 0 && (
                       <p className="text-xs text-muted">
@@ -732,14 +825,17 @@ export default function EventsPage() {
                   aria-expanded={isPickerOpen}
                   aria-label={
                     form.startsAt
-                      ? `Date and time, ${formatDateTime(form.startsAt)}`
+                      ? `Date and time, ${formatTimeRange(
+                          form.startsAt,
+                          form.endsAt,
+                        )}`
                       : "Select date and time"
                   }
                   className={`${fieldClass} flex items-center justify-between gap-3 text-left`}
                 >
                   <span className={form.startsAt ? "" : "text-muted"}>
                     {form.startsAt
-                      ? formatDateTime(form.startsAt)
+                      ? formatTimeRange(form.startsAt, form.endsAt)
                       : "Select date and time"}
                   </span>
                   <CalendarIcon />
@@ -815,45 +911,25 @@ export default function EventsPage() {
                       })}
                     </div>
 
-                    <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3">
-                      <span className="text-xs text-muted">Time</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="relative inline-flex">
-                          <select
-                            aria-label="Hour"
-                            value={pickerHour}
-                            onChange={(event) =>
-                              selectTime(event.target.value, pickerMinute)
-                            }
-                            className="appearance-none rounded-md border border-line bg-background py-1.5 pr-6 pl-2 text-sm tabular-nums text-foreground transition-colors focus:border-muted focus:outline-none"
-                          >
-                            {hours.map((hour) => (
-                              <option key={hour} value={hour}>
-                                {hour}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-1.5 h-3 w-3 -translate-y-1/2 text-muted" />
-                        </span>
-                        <span className="text-muted">:</span>
-                        <span className="relative inline-flex">
-                          <select
-                            aria-label="Minute"
-                            value={pickerMinute}
-                            onChange={(event) =>
-                              selectTime(pickerHour, event.target.value)
-                            }
-                            className="appearance-none rounded-md border border-line bg-background py-1.5 pr-6 pl-2 text-sm tabular-nums text-foreground transition-colors focus:border-muted focus:outline-none"
-                          >
-                            {minutes.map((minute) => (
-                              <option key={minute} value={minute}>
-                                {minute}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-1.5 h-3 w-3 -translate-y-1/2 text-muted" />
-                        </span>
-                      </div>
+                    <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
+                      <TimeSelects
+                        label="Starts"
+                        hour={pickerHour}
+                        minute={pickerMinute}
+                        onChange={selectStartTime}
+                      />
+                      <TimeSelects
+                        label="Ends"
+                        hour={pickerEndHour}
+                        minute={pickerEndMinute}
+                        disabled={!selectedDateTime}
+                        onChange={selectEndTime}
+                      />
+                      {endsNextDay && (
+                        <p className="text-right text-[11px] text-muted">
+                          Ends the next day
+                        </p>
+                      )}
                     </div>
 
                     <div className="mt-3 flex items-center justify-between border-t border-line pt-2">
@@ -1070,6 +1146,61 @@ function Switch({
       </span>
       <span>{label}</span>
     </button>
+  );
+}
+
+function TimeSelects({
+  label,
+  hour,
+  minute,
+  disabled = false,
+  onChange,
+}: {
+  label: string;
+  hour: string;
+  minute: string;
+  disabled?: boolean;
+  onChange: (hour: string, minute: string) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-xs text-muted">{label}</span>
+      <div className="flex items-center gap-1.5">
+        <span className="relative inline-flex">
+          <select
+            aria-label={`${label} hour`}
+            value={hour}
+            disabled={disabled}
+            onChange={(event) => onChange(event.target.value, minute)}
+            className={timeSelectClass}
+          >
+            {hours.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+          <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-1.5 h-3 w-3 -translate-y-1/2 text-muted" />
+        </span>
+        <span className="text-muted">:</span>
+        <span className="relative inline-flex">
+          <select
+            aria-label={`${label} minute`}
+            value={minute}
+            disabled={disabled}
+            onChange={(event) => onChange(hour, event.target.value)}
+            className={timeSelectClass}
+          >
+            {minutes.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+          <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-1.5 h-3 w-3 -translate-y-1/2 text-muted" />
+        </span>
+      </div>
+    </div>
   );
 }
 
