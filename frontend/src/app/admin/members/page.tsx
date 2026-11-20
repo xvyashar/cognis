@@ -8,6 +8,9 @@ import {
 } from "react";
 
 import { createId } from "@/lib/id";
+import { ConfirmDialog } from "../_components/confirm-dialog";
+import { PlusIcon, XIcon } from "../_components/icons";
+import { RowActions } from "../_components/row-actions";
 import { mockMembers, type Member } from "../_data/members";
 
 const fieldClass =
@@ -19,7 +22,9 @@ export default function MembersPage() {
   const [members, setMembers] = useState(mockMembers);
   const [query, setQuery] = useState("");
   const [form, setForm] = useState(emptyForm);
+  const [formError, setFormError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Member | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   const filtered = useMemo(() => {
@@ -48,6 +53,7 @@ export default function MembersPage() {
   function openAddDialog() {
     setEditingId(null);
     setForm(emptyForm);
+    setFormError("");
     showDialog();
   }
 
@@ -58,6 +64,7 @@ export default function MembersPage() {
       identifier: member.identifier,
       email: member.email,
     });
+    setFormError("");
     showDialog();
   }
 
@@ -74,24 +81,39 @@ export default function MembersPage() {
 
   function updateField(field: keyof typeof emptyForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
+    setFormError("");
   }
 
   function submitMember(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const fullName = form.fullName.trim();
-    if (!fullName) return;
+    if (!fullName) {
+      setFormError("Enter the member's name.");
+      return;
+    }
+
+    const identifier = form.identifier.trim();
+    const duplicateIdentifier =
+      identifier !== "" &&
+      members.some(
+        (member) =>
+          member.id !== editingId &&
+          member.identifier.toLowerCase() === identifier.toLowerCase(),
+      );
+
+    if (duplicateIdentifier) {
+      setFormError(`Another member already uses ${identifier}.`);
+      return;
+    }
+
+    const email = form.email.trim();
 
     if (editingId) {
       setMembers((current) =>
         current.map((member) =>
           member.id === editingId
-            ? {
-                ...member,
-                fullName,
-                identifier: form.identifier.trim(),
-                email: form.email.trim(),
-              }
+            ? { ...member, fullName, identifier, email }
             : member,
         ),
       );
@@ -100,8 +122,8 @@ export default function MembersPage() {
         {
           id: createId(),
           fullName,
-          identifier: form.identifier.trim(),
-          email: form.email.trim(),
+          identifier,
+          email,
           isActive: true,
         },
         ...current,
@@ -148,7 +170,11 @@ export default function MembersPage() {
         </p>
       </div>
 
-      {filtered.length === 0 ? (
+      {members.length === 0 ? (
+        <p className="py-12 text-center text-sm text-muted">
+          No members yet. Add your first member to get started.
+        </p>
+      ) : filtered.length === 0 ? (
         <p className="py-12 text-center text-sm text-muted">
           No members match “{query}”.
         </p>
@@ -185,10 +211,10 @@ export default function MembersPage() {
                       />
                     </td>
                     <td className="py-4 text-right">
-                      <MemberActions
-                        member={member}
+                      <RowActions
+                        label={member.fullName}
                         onEdit={() => openEditDialog(member)}
-                        onDelete={() => removeMember(member.id)}
+                        onDelete={() => setPendingDelete(member)}
                       />
                     </td>
                   </tr>
@@ -217,10 +243,10 @@ export default function MembersPage() {
                       </p>
                     )}
                   </div>
-                  <MemberActions
-                    member={member}
+                  <RowActions
+                    label={member.fullName}
                     onEdit={() => openEditDialog(member)}
-                    onDelete={() => removeMember(member.id)}
+                    onDelete={() => setPendingDelete(member)}
                   />
                 </div>
                 <div className="mt-3">
@@ -239,6 +265,7 @@ export default function MembersPage() {
         ref={dialogRef}
         onClose={() => {
           setForm(emptyForm);
+          setFormError("");
           setEditingId(null);
         }}
         onClick={(event) => {
@@ -287,7 +314,9 @@ export default function MembersPage() {
                 autoComplete="off"
                 placeholder="EMP-007"
                 value={form.identifier}
-                onChange={(event) => updateField("identifier", event.target.value)}
+                onChange={(event) =>
+                  updateField("identifier", event.target.value)
+                }
                 className={fieldClass}
               />
             </label>
@@ -303,6 +332,7 @@ export default function MembersPage() {
                 className={fieldClass}
               />
             </label>
+            {formError && <p className="text-xs text-danger">{formError}</p>}
           </div>
 
           <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
@@ -322,6 +352,18 @@ export default function MembersPage() {
           </div>
         </form>
       </dialog>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={`Delete ${pendingDelete?.fullName ?? "member"}?`}
+        description="Their enrollment and check-in history will no longer be available from this list."
+        confirmLabel="Delete member"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete) removeMember(pendingDelete.id);
+          setPendingDelete(null);
+        }}
+      />
     </div>
   );
 }
@@ -351,112 +393,5 @@ function MemberStatusButton({
       />
       {member.isActive ? "Active" : "Inactive"}
     </button>
-  );
-}
-
-function MemberActions({
-  member,
-  onEdit,
-  onDelete,
-}: {
-  member: Member;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <div className="inline-flex shrink-0 items-center gap-1">
-      <button
-        type="button"
-        onClick={onEdit}
-        title="Edit member"
-        aria-label={`Edit ${member.fullName}`}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-hover hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
-      >
-        <PencilIcon />
-      </button>
-      <button
-        type="button"
-        onClick={onDelete}
-        aria-label={`Delete ${member.fullName}`}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-hover hover:text-danger focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
-      >
-        <TrashIcon />
-      </button>
-    </div>
-  );
-}
-
-function PencilIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden="true"
-    >
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden="true"
-    >
-      <path d="M3 6h18" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden="true"
-    >
-      <path d="M12 5v14" />
-      <path d="M5 12h14" />
-    </svg>
-  );
-}
-
-function XIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden="true"
-    >
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
   );
 }

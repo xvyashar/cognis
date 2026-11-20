@@ -6,7 +6,7 @@ import {
   AttendanceLogsIcon,
   EventsIcon,
   MembersIcon,
-} from "./nav-icons";
+} from "./icons";
 
 const items = [
   { href: "/admin/members", label: "Members", Icon: MembersIcon },

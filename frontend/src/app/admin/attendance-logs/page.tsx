@@ -3,38 +3,25 @@
 import { useMemo, useState } from "react";
 
 import { DateTimePicker } from "../_components/date-time-picker";
+import { DownloadIcon } from "../_components/icons";
 import {
   mockAttendanceLogs,
   type AttendanceLog,
 } from "../_data/attendance-logs";
 import { mockEvents } from "../_data/events";
 import { mockMembers, type Member } from "../_data/members";
+import {
+  formatDateTime,
+  parseDateTime,
+  toDateTimeValue,
+} from "../_lib/datetime";
 
 const NOT_ATTACHED = "not-attached";
 const ONLY_ATTACHED = "only-attached";
 
-const shortWeekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-const shortMonths = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
 const eventById = new Map(mockEvents.map((event) => [event.id, event]));
 
-const memberById = new Map(
-  mockMembers.map((member) => [member.id, member]),
-);
+const memberById = new Map(mockMembers.map((member) => [member.id, member]));
 
 const filterTags = [
   ...mockEvents.map((event) => ({ id: event.id, name: event.name })),
@@ -42,20 +29,16 @@ const filterTags = [
   { id: NOT_ATTACHED, name: "Not Attached" },
 ];
 
-function formatCheckedIn(value: string) {
-  const [date = "", time = ""] = value.split("T");
-  const [rawYear = "", rawMonth = "", rawDay = ""] = date.split("-");
-  const year = Number(rawYear);
-  const month = Number(rawMonth);
-  const day = Number(rawDay);
+const logs = [...mockAttendanceLogs].sort(
+  (a, b) =>
+    b.checkedInAt.localeCompare(a.checkedInAt) ||
+    b.id.localeCompare(a.id, "en", { numeric: true }),
+);
 
-  if (!time || !year || !month || !day) return value;
-
-  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-
-  return `${shortWeekdays[weekday]} ${day} ${
-    shortMonths[month - 1]
-  } ${year}, ${time.slice(0, 5)}`;
+/** Normalises a timestamp to the minute precision used by the date filters. */
+function minuteValue(value: string) {
+  const parts = parseDateTime(value);
+  return parts ? toDateTimeValue(parts) : null;
 }
 
 function eventName(log: AttendanceLog) {
@@ -63,8 +46,14 @@ function eventName(log: AttendanceLog) {
   return eventById.get(log.eventId)?.name ?? "Unknown event";
 }
 
+/**
+ * Escapes a CSV cell and neutralises values a spreadsheet would treat as a
+ * formula, so exports of member-supplied strings stay inert when opened.
+ */
 function csvCell(value: string) {
-  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+
+  return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
 function matchesQuery(member: Member | undefined, query: string) {
@@ -84,7 +73,7 @@ export default function AttendanceLogsPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
 
-    return mockAttendanceLogs.filter((log) => {
+    return logs.filter((log) => {
       if (q && !matchesQuery(memberById.get(log.memberId), q)) return false;
 
       if (selectedTags.length > 0) {
@@ -96,18 +85,16 @@ export default function AttendanceLogsPage() {
         if (!matchesTag) return false;
       }
 
-      if (from && log.checkedInAt < from) return false;
-      if (to && log.checkedInAt > to) return false;
+      const checkedInAt = minuteValue(log.checkedInAt);
+      if (from && (!checkedInAt || checkedInAt < from)) return false;
+      if (to && (!checkedInAt || checkedInAt > to)) return false;
 
       return true;
     });
   }, [from, query, selectedTags, to]);
 
   const hasFilters =
-    query.trim() !== "" ||
-    selectedTags.length > 0 ||
-    from !== "" ||
-    to !== "";
+    query.trim() !== "" || selectedTags.length > 0 || from !== "" || to !== "";
 
   function toggleTag(id: string) {
     setSelectedTags((current) =>
@@ -125,6 +112,8 @@ export default function AttendanceLogsPage() {
   }
 
   function exportReport() {
+    if (filtered.length === 0) return;
+
     const header = ["Member", "Identifier", "Email", "Event", "Checked in"];
     const rows = filtered.map((log) => {
       const member = memberById.get(log.memberId);
@@ -134,7 +123,7 @@ export default function AttendanceLogsPage() {
         member?.identifier ?? "",
         member?.email ?? "",
         eventName(log) ?? "Not Attached",
-        formatCheckedIn(log.checkedInAt),
+        formatDateTime(log.checkedInAt),
       ];
     });
 
@@ -142,14 +131,16 @@ export default function AttendanceLogsPage() {
       .map((row) => row.map(csvCell).join(","))
       .join("\r\n");
     const url = URL.createObjectURL(
-      new Blob([csv], { type: "text/csv;charset=utf-8" }),
+      new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" }),
     );
     const link = document.createElement("a");
 
     link.href = url;
     link.download = `attendance-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
     link.click();
-    URL.revokeObjectURL(url);
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   return (
@@ -188,7 +179,7 @@ export default function AttendanceLogsPage() {
             />
           </label>
           <p className="text-xs text-muted">
-            {filtered.length} of {mockAttendanceLogs.length} logs
+            {filtered.length} of {logs.length} logs
           </p>
         </div>
 
@@ -238,6 +229,7 @@ export default function AttendanceLogsPage() {
                 }}
                 placeholder="Any time"
                 ariaLabel="Checked in to"
+                defaultTime="23:59"
               />
             </div>
           </div>
@@ -296,7 +288,7 @@ export default function AttendanceLogsPage() {
                         )}
                       </td>
                       <td className="py-4 tabular-nums">
-                        {formatCheckedIn(log.checkedInAt)}
+                        {formatDateTime(log.checkedInAt)}
                       </td>
                     </tr>
                   );
@@ -327,7 +319,7 @@ export default function AttendanceLogsPage() {
                     {name ?? "Not Attached"}
                   </p>
                   <p className="mt-2 text-xs tabular-nums text-muted">
-                    {formatCheckedIn(log.checkedInAt)}
+                    {formatDateTime(log.checkedInAt)}
                   </p>
                 </li>
               );
@@ -336,24 +328,5 @@ export default function AttendanceLogsPage() {
         </>
       )}
     </div>
-  );
-}
-
-function DownloadIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden="true"
-    >
-      <path d="M12 3v12" />
-      <path d="m7 10 5 5 5-5" />
-      <path d="M5 21h14" />
-    </svg>
   );
 }

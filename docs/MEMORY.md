@@ -26,6 +26,9 @@ Working memory for agents. Update this file as decisions are made. Anything mark
 | 2026-11-20 | Admin mock data is shared through `frontend/src/app/admin/_data/` | Events need the same members; replace with API data when the client lands |
 | 2026-11-20 | Events carry `startsAt` and `endsAt`; the form's calendar picks the start day, the end time rolls to the next day when it is not after the start | Overnight events stay expressible without a second calendar, and changing the start keeps the duration |
 | 2026-11-20 | Attendance log export is CSV of the currently filtered rows | Matches the assumed report format; date/time range and event tags are the requested filters |
+| 2026-11-20 | Admin date/time parsing, icons, row actions and the destructive-action confirm dialog live in `src/app/admin/_lib/datetime.ts` and `src/app/admin/_components/` | Three pages had diverging copies of the same calendar, formatters and SVG icons; one copy keeps formats and behavior aligned |
+| 2026-11-20 | The attendance "To" filter defaults to 23:59 when a day is picked without a time | Defaulting to 00:00 silently excluded that day's check-ins from the range |
+| 2026-11-20 | CSV cells that start with `=`, `+`, `-`, `@` are prefixed with `'` and the file is written with a UTF-8 BOM | Member-supplied strings must not execute as spreadsheet formulas, and Excel needs the BOM to read non-ASCII names |
 
 ## Open questions (resolve before/during implementation)
 

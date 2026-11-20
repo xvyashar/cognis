@@ -2,47 +2,24 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const shortWeekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-const shortMonths = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-const longMonths = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
-const isoWeekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-const hours = Array.from({ length: 24 }, (_, hour) =>
-  String(hour).padStart(2, "0"),
-);
-
-const minutes = Array.from({ length: 60 }, (_, minute) =>
-  String(minute).padStart(2, "0"),
-);
+import {
+  formatDatePart,
+  formatDateTime,
+  formatFullDate,
+  hours,
+  isoWeekdays,
+  longMonths,
+  minutes,
+  parseDateTime,
+  toDateTimeValue,
+  type DateTimeParts,
+} from "../_lib/datetime";
+import {
+  CalendarIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "./icons";
 
 const fieldClass =
   "flex w-full items-center justify-between gap-3 rounded-md border border-line bg-background px-3 py-2 text-sm text-foreground transition-colors focus:border-muted focus:outline-none";
@@ -50,66 +27,37 @@ const fieldClass =
 const timeSelectClass =
   "appearance-none rounded-md border border-line bg-background py-1.5 pr-6 pl-2 text-sm tabular-nums text-foreground transition-colors focus:border-muted focus:outline-none";
 
-type Parts = { year: number; month: number; day: number; time: string };
-
-function pad(value: number) {
-  return String(value).padStart(2, "0");
+function currentMonth() {
+  const today = new Date();
+  return { year: today.getFullYear(), month: today.getMonth() + 1 };
 }
 
-function parseValue(value: string): Parts | null {
-  const [date = "", time = ""] = value.split("T");
-  const [rawYear = "", rawMonth = "", rawDay = ""] = date.split("-");
-  const year = Number(rawYear);
-  const month = Number(rawMonth);
-  const day = Number(rawDay);
-
-  if (!time || !year || !month || !day) return null;
-
-  return { year, month, day, time: time.slice(0, 5) };
-}
-
-function toValue({ year, month, day, time }: Parts) {
-  return `${year}-${pad(month)}-${pad(day)}T${time}`;
-}
-
-function formatValue(value: string) {
-  const parts = parseValue(value);
-  if (!parts) return value;
-
-  const weekday = new Date(
-    Date.UTC(parts.year, parts.month - 1, parts.day),
-  ).getUTCDay();
-
-  return `${shortWeekdays[weekday]} ${parts.day} ${
-    shortMonths[parts.month - 1]
-  } ${parts.year}, ${parts.time}`;
-}
-
-function formatFullDate(year: number, month: number, day: number) {
-  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-  return `${shortWeekdays[weekday]} ${day} ${longMonths[month - 1]} ${year}`;
-}
+/** Only shown before the popover opens, which always recomputes the month. */
+const initialMonth = { year: 2026, month: 1 };
 
 export function DateTimePicker({
   value,
   onChange,
   placeholder,
   ariaLabel,
+  defaultTime = "00:00",
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   ariaLabel: string;
+  /** Time used for a picked day when the field is still empty. */
+  defaultTime?: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState(() => {
-    const parts = parseValue(value);
-    return parts ? { year: parts.year, month: parts.month } : { year: 2026, month: 1 };
+    const parts = parseDateTime(value);
+    return parts ? { year: parts.year, month: parts.month } : initialMonth;
   });
   const pickerRef = useRef<HTMLDivElement>(null);
 
-  const selected = parseValue(value);
-  const selectedTime = selected?.time ?? "00:00";
+  const selected = parseDateTime(value);
+  const selectedTime = selected?.time ?? defaultTime;
   const [hour = "00", minute = "00"] = selectedTime.split(":");
 
   const monthStart = new Date(Date.UTC(viewMonth.year, viewMonth.month - 1, 1));
@@ -150,13 +98,9 @@ export function DateTimePicker({
   }, [isOpen]);
 
   function openPicker() {
-    const parts = parseValue(value);
-    const today = new Date();
-
+    const parts = parseDateTime(value);
     setViewMonth(
-      parts
-        ? { year: parts.year, month: parts.month }
-        : { year: today.getFullYear(), month: today.getMonth() + 1 },
+      parts ? { year: parts.year, month: parts.month } : currentMonth(),
     );
     setIsOpen(true);
   }
@@ -178,11 +122,11 @@ export function DateTimePicker({
   }
 
   function selectDay(year: number, month: number, day: number) {
-    onChange(toValue({ year, month, day, time: selectedTime }));
+    onChange(toDateTimeValue({ year, month, day, time: selectedTime }));
     setViewMonth({ year, month });
   }
 
-  function baseParts(): Parts {
+  function baseParts(): DateTimeParts {
     if (selected) return selected;
 
     const today = new Date();
@@ -190,16 +134,16 @@ export function DateTimePicker({
       year: today.getFullYear(),
       month: today.getMonth() + 1,
       day: today.getDate(),
-      time: "00:00",
+      time: defaultTime,
     };
   }
 
   function selectHour(nextHour: string) {
-    onChange(toValue({ ...baseParts(), time: `${nextHour}:${minute}` }));
+    onChange(toDateTimeValue({ ...baseParts(), time: `${nextHour}:${minute}` }));
   }
 
   function selectMinute(nextMinute: string) {
-    onChange(toValue({ ...baseParts(), time: `${hour}:${nextMinute}` }));
+    onChange(toDateTimeValue({ ...baseParts(), time: `${hour}:${nextMinute}` }));
   }
 
   function selectToday() {
@@ -214,11 +158,11 @@ export function DateTimePicker({
         onClick={togglePicker}
         aria-haspopup="dialog"
         aria-expanded={isOpen}
-        aria-label={value ? `${ariaLabel}, ${formatValue(value)}` : ariaLabel}
+        aria-label={value ? `${ariaLabel}, ${formatDateTime(value)}` : ariaLabel}
         className={fieldClass}
       >
         <span className={value ? "" : "text-muted"}>
-          {value ? formatValue(value) : placeholder}
+          {value ? formatDateTime(value) : placeholder}
         </span>
         <CalendarIcon />
       </button>
@@ -268,7 +212,7 @@ export function DateTimePicker({
 
               return (
                 <button
-                  key={`${date.year}-${date.month}-${date.day}`}
+                  key={formatDatePart(date.year, date.month, date.day)}
                   type="button"
                   onClick={() => selectDay(date.year, date.month, date.day)}
                   aria-label={formatFullDate(date.year, date.month, date.day)}
@@ -354,76 +298,5 @@ export function DateTimePicker({
         </div>
       )}
     </div>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4 shrink-0 text-muted"
-      aria-hidden="true"
-    >
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M16 3v4" />
-      <path d="M8 3v4" />
-      <path d="M3 11h18" />
-    </svg>
-  );
-}
-
-function ChevronLeftIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden="true"
-    >
-      <path d="m15 18-6-6 6-6" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden="true"
-    >
-      <path d="m9 18 6-6-6-6" />
-    </svg>
-  );
-}
-
-function ChevronDownIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
   );
 }

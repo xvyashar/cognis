@@ -9,50 +9,32 @@ import {
 } from "react";
 
 import { createId } from "@/lib/id";
+import { ConfirmDialog } from "../_components/confirm-dialog";
+import {
+  CalendarIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  PlusIcon,
+  XIcon,
+} from "../_components/icons";
+import { RowActions } from "../_components/row-actions";
 import { mockEvents, type AdminEvent } from "../_data/events";
 import { mockMembers } from "../_data/members";
-
-const shortWeekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-const shortMonths = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-const isoWeekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-const longMonths = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
-const hours = Array.from({ length: 24 }, (_, hour) =>
-  String(hour).padStart(2, "0"),
-);
-
-const minutes = Array.from({ length: 60 }, (_, minute) =>
-  String(minute).padStart(2, "0"),
-);
+import {
+  formatDatePart,
+  formatFullDate,
+  formatTimeRange,
+  hours,
+  isoWeekdays,
+  longMonths,
+  minutes,
+  pad,
+  parseDateTime,
+  toDateTimeValue,
+  weekdayOf,
+} from "../_lib/datetime";
 
 const activeMembers = mockMembers.filter((member) => member.isActive);
 
@@ -62,89 +44,79 @@ const fieldClass =
 const timeSelectClass =
   "appearance-none rounded-md border border-line bg-background py-1.5 pr-6 pl-2 text-sm tabular-nums text-foreground transition-colors focus:border-muted focus:outline-none disabled:cursor-not-allowed disabled:opacity-50";
 
-const emptyForm = {
-  name: "",
-  description: "",
-  startsAt: "",
-  endsAt: "",
-  isOpen: true,
-  memberIds: [] as string[],
-  isRepeating: false,
-  repeatDays: [] as number[],
+type EventForm = {
+  name: string;
+  description: string;
+  startsAt: string;
+  endsAt: string;
+  isOpen: boolean;
+  memberIds: string[];
+  isRepeating: boolean;
+  repeatDays: number[];
 };
 
-type EventForm = typeof emptyForm;
-
-function parseDateTime(value: string) {
-  const [date = "", time = ""] = value.split("T");
-  const [rawYear = "", rawMonth = "", rawDay = ""] = date.split("-");
-  const year = Number(rawYear);
-  const month = Number(rawMonth);
-  const day = Number(rawDay);
-
-  if (!time || !year || !month || !day) return null;
-
-  return { year, month, day, time };
+function createEmptyForm(): EventForm {
+  return {
+    name: "",
+    description: "",
+    startsAt: "",
+    endsAt: "",
+    isOpen: true,
+    memberIds: [],
+    isRepeating: false,
+    repeatDays: [],
+  };
 }
 
-function weekdayFromValue(value: string) {
-  const parsed = parseDateTime(value);
-  if (!parsed) return null;
-
-  const weekday = new Date(
-    Date.UTC(parsed.year, parsed.month - 1, parsed.day),
-  ).getUTCDay();
-
-  return weekday === 0 ? 7 : weekday;
+function currentMonth() {
+  const today = new Date();
+  return { year: today.getFullYear(), month: today.getMonth() + 1 };
 }
 
-function formatDateTime(value: string) {
-  const parsed = parseDateTime(value);
-  if (!parsed) return value;
+/** Only shown before the popover opens, which always recomputes the month. */
+const initialMonth = { year: 2026, month: 1 };
 
-  const weekday = new Date(
-    Date.UTC(parsed.year, parsed.month - 1, parsed.day),
-  ).getUTCDay();
+/** Minutes since the epoch for a form value, in UTC to keep offsets DST-free. */
+function timestampOf(value: string) {
+  const parts = parseDateTime(value);
+  if (!parts) return null;
 
-  return `${shortWeekdays[weekday]} ${parsed.day} ${
-    shortMonths[parsed.month - 1]
-  } ${parsed.year}, ${parsed.time}`;
-}
+  const [rawHour = "0", rawMinute = "0"] = parts.time.split(":");
 
-function dateTimeValue(value: string) {
-  const parsed = parseDateTime(value);
-  if (!parsed) return null;
-
-  const [rawHour = "0", rawMinute = "0"] = parsed.time.split(":");
   return Date.UTC(
-    parsed.year,
-    parsed.month - 1,
-    parsed.day,
+    parts.year,
+    parts.month - 1,
+    parts.day,
     Number(rawHour),
     Number(rawMinute),
   );
 }
 
-function offsetDateTimeValue(value: string, minutes: number) {
-  const base = dateTimeValue(value);
+function offsetValue(value: string, minutes: number) {
+  const base = timestampOf(value);
   if (base === null) return "";
 
   const date = new Date(base + minutes * 60_000);
-  return `${formatDatePart(date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate())}T${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
+
+  return toDateTimeValue({
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+    time: `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`,
+  });
 }
 
-function formatTimeRange(startsAt: string, endsAt: string) {
-  const start = formatDateTime(startsAt);
-  if (!endsAt) return start;
+/** ISO weekday (1 = Mon .. 7 = Sun) of a form value. */
+function isoWeekdayOf(value: string) {
+  const parts = parseDateTime(value);
+  if (!parts) return null;
 
-  if (startsAt.slice(0, 10) === endsAt.slice(0, 10)) {
-    return `${start} – ${endsAt.slice(11, 16)}`;
-  }
-
-  return `${start} – ${formatDateTime(endsAt)}`;
+  const weekday = weekdayOf(parts.year, parts.month, parts.day);
+  return weekday === 0 ? 7 : weekday;
 }
 
 function formatRepeatDays(days: number[]) {
+  if (days.length === 0) return "";
   if (days.length === 7) return "Every day";
 
   const weekdays = [1, 2, 3, 4, 5];
@@ -155,21 +127,10 @@ function formatRepeatDays(days: number[]) {
   return `Every ${days.map((day) => isoWeekdays[day - 1]).join(", ")}`;
 }
 
-function pad(value: number) {
-  return String(value).padStart(2, "0");
-}
-
-function formatDatePart(year: number, month: number, day: number) {
-  return `${year}-${pad(month)}-${pad(day)}`;
-}
-
-function formatFullDate(year: number, month: number, day: number) {
-  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
-  return `${shortWeekdays[weekday]} ${day} ${longMonths[month - 1]} ${year}`;
-}
-
 function memberSummary(event: AdminEvent) {
   if (event.isOpen) return "All members";
+  if (event.memberIds.length === 0) return "No members";
+
   return event.memberIds.length === 1
     ? "1 member"
     : `${event.memberIds.length} members`;
@@ -178,12 +139,13 @@ function memberSummary(event: AdminEvent) {
 export default function EventsPage() {
   const [events, setEvents] = useState(mockEvents);
   const [query, setQuery] = useState("");
-  const [form, setForm] = useState<EventForm>(emptyForm);
+  const [form, setForm] = useState<EventForm>(createEmptyForm);
   const [formError, setFormError] = useState("");
   const [pickerQuery, setPickerQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<AdminEvent | null>(null);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [viewMonth, setViewMonth] = useState({ year: 2026, month: 1 });
+  const [viewMonth, setViewMonth] = useState(initialMonth);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
 
@@ -215,7 +177,7 @@ export default function EventsPage() {
   const [pickerHour = "09", pickerMinute = "00"] = selectedTime.split(":");
   const selectedEndTime =
     selectedEndDateTime?.time ??
-    parseDateTime(offsetDateTimeValue(form.startsAt, 60))?.time ??
+    parseDateTime(offsetValue(form.startsAt, 60))?.time ??
     "10:00";
   const [pickerEndHour = "10", pickerEndMinute = "00"] =
     selectedEndTime.split(":");
@@ -277,7 +239,7 @@ export default function EventsPage() {
           repeatDays:
             event.repeatDays.length > 0
               ? event.repeatDays
-              : [weekdayFromValue(event.startsAt) ?? 1],
+              : [isoWeekdayOf(event.startsAt) ?? 1],
         };
       }),
     );
@@ -285,7 +247,7 @@ export default function EventsPage() {
 
   function openAddDialog() {
     setEditingId(null);
-    setForm(emptyForm);
+    setForm(createEmptyForm());
     setFormError("");
     setPickerQuery("");
     setIsPickerOpen(false);
@@ -341,7 +303,7 @@ export default function EventsPage() {
       repeatDays:
         form.repeatDays.length > 0
           ? form.repeatDays
-          : [weekdayFromValue(form.startsAt) ?? 1],
+          : [isoWeekdayOf(form.startsAt) ?? 1],
     });
   }
 
@@ -378,12 +340,9 @@ export default function EventsPage() {
 
   function openPicker() {
     const parsed = parseDateTime(form.startsAt);
-    const today = new Date();
 
     setViewMonth(
-      parsed
-        ? { year: parsed.year, month: parsed.month }
-        : { year: today.getFullYear(), month: today.getMonth() + 1 },
+      parsed ? { year: parsed.year, month: parsed.month } : currentMonth(),
     );
     setIsPickerOpen(true);
   }
@@ -397,15 +356,16 @@ export default function EventsPage() {
     openPicker();
   }
 
+  /** Keeps the previously chosen duration when the start moves. */
   function endFor(startsAt: string) {
-    const start = dateTimeValue(form.startsAt);
-    const end = dateTimeValue(form.endsAt);
+    const start = timestampOf(form.startsAt);
+    const end = timestampOf(form.endsAt);
     const duration =
       start !== null && end !== null && end > start
         ? Math.round((end - start) / 60_000)
         : 60;
 
-    return offsetDateTimeValue(startsAt, duration);
+    return offsetValue(startsAt, duration);
   }
 
   function withStartDate(hour: string, minute: string) {
@@ -440,7 +400,7 @@ export default function EventsPage() {
     const sameDay = `${formatDatePart(parsed.year, parsed.month, parsed.day)}T${hour}:${minute}`;
     updateForm({
       endsAt:
-        sameDay > form.startsAt ? sameDay : offsetDateTimeValue(sameDay, 1440),
+        sameDay > form.startsAt ? sameDay : offsetValue(sameDay, 1440),
     });
   }
 
@@ -502,10 +462,7 @@ export default function EventsPage() {
         ),
       );
     } else {
-      setEvents((current) => [
-        { id: createId(), ...values },
-        ...current,
-      ]);
+      setEvents((current) => [{ id: createId(), ...values }, ...current]);
     }
 
     setQuery("");
@@ -605,10 +562,10 @@ export default function EventsPage() {
                       />
                     </td>
                     <td className="py-4 text-right">
-                      <EventActions
-                        event={event}
+                      <RowActions
+                        label={event.name}
                         onEdit={() => openEditDialog(event)}
-                        onDelete={() => removeEvent(event.id)}
+                        onDelete={() => setPendingDelete(event)}
                       />
                     </td>
                   </tr>
@@ -638,10 +595,10 @@ export default function EventsPage() {
                       {memberSummary(event)}
                     </p>
                   </div>
-                  <EventActions
-                    event={event}
+                  <RowActions
+                    label={event.name}
                     onEdit={() => openEditDialog(event)}
-                    onDelete={() => removeEvent(event.id)}
+                    onDelete={() => setPendingDelete(event)}
                   />
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-4">
@@ -667,7 +624,7 @@ export default function EventsPage() {
       <dialog
         ref={dialogRef}
         onClose={() => {
-          setForm(emptyForm);
+          setForm(createEmptyForm());
           setEditingId(null);
           setFormError("");
           setPickerQuery("");
@@ -800,14 +757,14 @@ export default function EventsPage() {
 
                     <div className="mt-1 grid grid-cols-7 gap-1">
                       {visibleDays.map((date) => {
-                        const selected =
+                        const selected: boolean =
                           selectedDateTime?.year === date.year &&
                           selectedDateTime.month === date.month &&
                           selectedDateTime.day === date.day;
 
                         return (
                           <button
-                            key={`${date.year}-${date.month}-${date.day}`}
+                            key={formatDatePart(date.year, date.month, date.day)}
                             type="button"
                             onClick={() =>
                               selectDay(date.year, date.month, date.day)
@@ -1026,6 +983,18 @@ export default function EventsPage() {
           </div>
         </form>
       </dialog>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={`Delete ${pendingDelete?.name ?? "event"}?`}
+        description="The event and its attendance logs will no longer be available from this list."
+        confirmLabel="Delete event"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          if (pendingDelete) removeEvent(pendingDelete.id);
+          setPendingDelete(null);
+        }}
+      />
     </div>
   );
 }
@@ -1122,212 +1091,5 @@ function TimeSelects({
         </span>
       </div>
     </div>
-  );
-}
-
-function EventActions({
-  event,
-  onEdit,
-  onDelete,
-}: {
-  event: AdminEvent;
-  onEdit: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <div className="inline-flex shrink-0 items-center gap-1">
-      <button
-        type="button"
-        onClick={onEdit}
-        title="Edit event"
-        aria-label={`Edit ${event.name}`}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-hover hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
-      >
-        <PencilIcon />
-      </button>
-      <button
-        type="button"
-        onClick={onDelete}
-        aria-label={`Delete ${event.name}`}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface-hover hover:text-danger focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger"
-      >
-        <TrashIcon />
-      </button>
-    </div>
-  );
-}
-
-function PencilIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden="true"
-    >
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden="true"
-    >
-      <path d="M3 6h18" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden="true"
-    >
-      <path d="M12 5v14" />
-      <path d="M5 12h14" />
-    </svg>
-  );
-}
-
-function XIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4"
-      aria-hidden="true"
-    >
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-4 w-4 shrink-0 text-muted"
-      aria-hidden="true"
-    >
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M16 3v4" />
-      <path d="M8 3v4" />
-      <path d="M3 11h18" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={3}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="h-3 w-3"
-      aria-hidden="true"
-    >
-      <path d="m5 13 4 4L19 7" />
-    </svg>
-  );
-}
-
-function ChevronLeftIcon({
-  className = "h-4 w-4",
-}: {
-  className?: string;
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="m15 18-6-6 6-6" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon({
-  className = "h-4 w-4",
-}: {
-  className?: string;
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="m9 18 6-6-6-6" />
-    </svg>
-  );
-}
-
-function ChevronDownIcon({
-  className = "h-4 w-4",
-}: {
-  className?: string;
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.75}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
   );
 }
