@@ -2,7 +2,7 @@
 
 Cognis is a simple face-recognition based attendance system. Members enroll a face once; at an event they stand in front of a camera, the app recognizes them and records attendance. Admins manage members, events and attendance reports.
 
-Status: scaffold only (commit `923dac2`). This document is the intended design, not a description of implemented features.
+Status: backend scaffold only; the frontend admin shell has mock-data Members and Events pages. This document is the intended design, not a description of implemented features.
 
 ## Product requirements
 

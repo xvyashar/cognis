@@ -2,11 +2,11 @@
 
 Working memory for agents. Update this file as decisions are made. Anything marked "planned" or "open" is not implemented.
 
-## Current state (2026-11-17)
+## Current state (2026-11-20)
 
-- Repo is a two-app monorepo at commit `923dac2` — scaffold plus these docs.
+- Repo is a two-app monorepo; the backend is still the original scaffold plus these docs.
 - `backend/`: fresh NestJS 12 app. Only `AppController` (`GET /` -> "Hello World!"), `AppService`, `AppModule`, `main.ts`. One spec, one e2e spec. No DB, config, auth, validation, CORS, Swagger, or modules yet.
-- `frontend/`: Next.js 16 app with the default landing page (`src/app/page.tsx`) and an admin shell. `/admin` redirects to `/admin/members`. The members page is a client-side list UI with mock data, live search, a per-row active toggle, icon-only edit/delete actions, local-only delete, and one native `<dialog>` form shared by "Add member" and per-row editing; all changes stay in local state. Layout is responsive: the admin sidebar becomes a horizontal top nav below `md`, and the members table switches to stacked cards below `lg`. Events and attendance logs are still draft pages. No camera code or API client yet.
+- `frontend/`: Next.js 16 app with the default landing page (`src/app/page.tsx`) and an admin shell. `/admin` redirects to `/admin/members`. The members page is a client-side list UI with mock data, live search, a per-row active toggle, icon-only edit/delete actions, local-only delete, and one native `<dialog>` form shared by "Add member" and per-row editing; all changes stay in local state. The events page follows the same pattern: mock events with name, description, start date/time, an open-to-all switch, a restricted member picker, and weekly recurrence on selected weekdays; the desktop table shows Event / When / Members / Open / Repeating / Actions with inline open and repeat toggles. Admin mock members live in `src/app/admin/_data/members.ts` and are shared by both pages. Layout is responsive: the admin sidebar becomes a horizontal top nav below `md`, and both tables switch to stacked cards below `lg`. Attendance logs is still a draft page. No camera code or API client yet.
 - `frontend/` theme: app-wide dark theme tokens in `src/app/globals.css` (`background`, `foreground`, `surface`, `surface-hover`, `line`, `muted`, `success`, `warning`, `danger`). Pages use the semantic Tailwind utilities (`bg-background`, `text-muted`, `border-line`, …), not raw colors. The body paints a CSS dot-grid texture (28px fine grid + offset 56px accent grid) that fades toward the bottom, so page wrappers must stay transparent to let it show.
 - No Docker, no Postgres instance, no pgvector, no migrations, no CI, no `.env` files in the repo.
 - Backend README/AGENTS still describe Nest defaults; treat nested AGENTS.md as authoritative for backend conventions.
@@ -21,6 +21,9 @@ Working memory for agents. Update this file as decisions are made. Anything mark
 | 2026-11-17 | Attendance is event-scoped with `unique (event_id, member_id)` | Idempotent check-in; reports are naturally per event |
 | 2026-11-17 | Store one row per enrollment sample; allow multiple samples per member | More samples improve accuracy; model field prevents mixing |
 | 2026-11-17 | UI style is dark, minimalistic, black and white | Owner preference; see Frontend UI design in `CONVENTIONS.md` |
+| 2026-11-20 | Event `open` flag means every member may attend; when off, attendance is scoped to selected members | Admin UI switch semantics; backend field still pending |
+| 2026-11-20 | v1 recurrence is weekly on selected ISO weekdays (1=Mon .. 7=Sun), with no interval or end date | Owner picked a weekday picker; covers weekly events without a calendar rule engine |
+| 2026-11-20 | Admin mock data is shared through `frontend/src/app/admin/_data/` | Events need the same members; replace with API data when the client lands |
 
 ## Open questions (resolve before/during implementation)
 
@@ -38,7 +41,7 @@ Working memory for agents. Update this file as decisions are made. Anything mark
 2. Backend: add `@nestjs/config`, Postgres connection (`@nestjs/typeorm` or `@nestjs/drizzle`), pgvector setup and migrations for `members`, `face_embeddings`, `events`, `attendance`.
 3. Backend: modules for members, events, attendance; schema validation via `StandardSchemaValidationPipe`; enable CORS for the frontend origin; `GET /health`.
 4. Backend: enrollment endpoint and identify endpoint implementing threshold lookup + idempotent insert. Unit-test the matching/attendance logic with Vitest.
-5. Frontend: API client + `NEXT_PUBLIC_API_URL`; admin members CRUD; admin events CRUD; attendance report.
+5. Frontend: API client + `NEXT_PUBLIC_API_URL`; wire admin members and events CRUD (mock-data UIs exist) to the backend; attendance report.
 6. Frontend: camera capture, face detection, embedding extraction, identify/check-in UI with clear success/duplicate/no-match states.
 7. Add auth on admin routes, then hardening: rate limits, embedding deletion, consent copy, no-embedding logging.
 
